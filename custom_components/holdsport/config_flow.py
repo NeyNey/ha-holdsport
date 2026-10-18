@@ -89,6 +89,10 @@ class HoldsportConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class HoldsportOptionsFlow(config_entries.OptionsFlow):
     """Options flow for Holdsport."""
 
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Store the config entry."""
+        self._entry = config_entry
+
     async def async_step_init(self, user_input: dict[str, Any] | None = None):
         """Manage options."""
         if user_input is not None:
@@ -100,7 +104,7 @@ class HoldsportOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         CONF_UPDATE_INTERVAL,
-                        default=self.config_entry.options.get(
+                        default=self._entry.options.get(
                             CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL
                         ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=360)),

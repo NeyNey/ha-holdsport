@@ -7,7 +7,6 @@ from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_USERNAME
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -112,10 +111,14 @@ class HoldsportTeamCalendar(
 
     def _activity_to_event(self, activity: dict[str, Any]) -> CalendarEvent | None:
         """Translate a Holdsport activity to a Home Assistant calendar event."""
-        start = dt_util.parse_datetime(activity.get("starttime", ""))
-        end = dt_util.parse_datetime(activity.get("endtime", ""))
+        start = dt_util.parse_datetime(activity.get("starttime") or "")
+        end = dt_util.parse_datetime(activity.get("endtime") or "")
         activity_id = activity.get("id")
-        if start is None or end is None or start >= end or activity_id is None:
+        if start is None or end is None or activity_id is None:
+            return None
+        start = dt_util.as_local(start) if start.tzinfo else start.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        end = dt_util.as_local(end) if end.tzinfo else end.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        if start >= end:
             return None
 
         return CalendarEvent(

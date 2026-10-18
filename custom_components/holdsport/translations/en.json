@@ -43,5 +43,15 @@
         "name": "Notes"
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Holdsport options",
+        "data": {
+          "update_interval": "Update interval (minutes)"
+        }
+      }
+    }
   }
 }

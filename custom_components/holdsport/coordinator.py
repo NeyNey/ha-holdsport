@@ -8,11 +8,12 @@ import logging
 from typing import Any
 
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_UPDATE_INTERVAL, DOMAIN
-from .holdsport_api import HoldsportApiClient, HoldsportApiError
+from .holdsport_api import HoldsportApiClient, HoldsportApiError, HoldsportAuthError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -117,5 +118,7 @@ class HoldsportDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "notes": notes,
                 "activity_tasks": activity_tasks,
             }
+        except HoldsportAuthError as err:
+            raise ConfigEntryAuthFailed(str(err)) from err
         except HoldsportApiError as err:
             raise UpdateFailed(f"Error communicating with Holdsport API: {err}") from err
