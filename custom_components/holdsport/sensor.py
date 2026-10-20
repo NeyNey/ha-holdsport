@@ -15,6 +15,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, MAX_TASK_ATTRIBUTES
+
+TEAM_ROLES = {
+    1: "player",
+    2: "coach",
+    3: "assistant_coach",
+    4: "injured",
+    5: "inactive",
+    6: "team_leader",
+}
 from .coordinator import HoldsportDataUpdateCoordinator
 
 
@@ -87,11 +96,7 @@ class HoldsportUserSensor(HoldsportBaseEntity):
         user = self.coordinator.data.get("user", {})
         return {
             "id": user.get("id"),
-            "birthday": user.get("birthday"),
-            "age": user.get("age"),
-            "gender": user.get("gender"),
             "team_count": len(self.coordinator.data.get("teams", [])),
-            "addresses": user.get("addresses", []),
         }
 
 
@@ -147,6 +152,7 @@ class HoldsportTeamMetricSensor(HoldsportTeamBaseEntity):
             "team_id": int(self._team_id),
             "team_name": self._team.get("name"),
             "role": self._team.get("role"),
+            "role_name": TEAM_ROLES.get(self._team.get("role")),
         }
 
 
@@ -183,6 +189,14 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
 
         return best[1] if best else None
 
+    def _my_status(self, activity: dict[str, Any]) -> str | None:
+        """Return the authenticated user's own response, if the API lists it."""
+        user_id = self.coordinator.data.get("user", {}).get("id")
+        for attendee in activity.get("activities_users", []):
+            if attendee.get("user_id") == user_id:
+                return attendee.get("status")
+        return None
+
     @property
     def native_value(self) -> str | None:
         """Return next activity name."""
@@ -213,6 +227,7 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
             "team_id": int(self._team_id),
             "team_name": self._team.get("name"),
             "team_role": self._team.get("role"),
+            "team_role_name": TEAM_ROLES.get(self._team.get("role")),
             "activity_id": activity.get("id"),
             "starttime": activity.get("starttime"),
             "endtime": activity.get("endtime"),
@@ -220,7 +235,20 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
             "place": activity.get("place"),
             "comment": activity.get("comment"),
             "no_rsvp_count": activity.get("no_rsvp_count"),
-            "no_rsvp": activity.get("no_rsvp", []),
+            "my_status": self._my_status(activity),
+            "attending_count": sum(
+                a.get("status_code") == 1 for a in activity.get("activities_users", [])
+            ),
+            "declined_count": sum(
+                a.get("status_code") == 2 for a in activity.get("activities_users", [])
+            ),
+            "max_attendees": activity.get("max_attendees"),
+            "pickup_place": activity.get("pickup_place"),
+            "pickup_time": activity.get("pickup_time"),
+            "registration_type": activity.get("registration_type"),
+            "is_department_activity": activity.get("department"),
+            "event_type": activity.get("event_type"),
+            "event_type_id": activity.get("event_type_id"),
             "available_actions": activity.get("actions", []),
             "action_method": activity.get("action_method"),
             "action_path": activity.get("action_path"),

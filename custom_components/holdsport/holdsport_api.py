@@ -82,20 +82,28 @@ class HoldsportApiClient:
         )
 
     async def async_get_all_activities(
-        self, team_id: int, *, per_page: int = 50
+        self, team_id: int, *, per_page: int = 50, max_pages: int = 20
     ) -> list[dict[str, Any]]:
-        """Fetch all pages of team activities."""
-        activities: list[dict[str, Any]] = []
-        page = 1
+        """Fetch all pages of upcoming team activities.
 
-        while True:
+        The server may cap per_page below what we ask for, so a short page does
+        not mean "last page". Keep going until a page is empty or adds nothing new.
+        """
+        activities: list[dict[str, Any]] = []
+        seen: set[Any] = set()
+
+        for page in range(1, max_pages + 1):
             activity_page = await self.async_get_activities(
                 team_id, page=page, per_page=per_page
             )
-            activities.extend(activity_page)
-            if len(activity_page) < per_page:
-                return activities
-            page += 1
+            if not activity_page:
+                break
+            new_items = [a for a in activity_page if a.get("id") not in seen]
+            if not new_items:
+                break
+            seen.update(a.get("id") for a in new_items)
+            activities.extend(new_items)
+        return activities
 
     async def async_get_members(self, team_id: int) -> list[dict[str, Any]]:
         """Fetch team members."""
@@ -122,7 +130,16 @@ class HoldsportApiClient:
 
         payload: dict[str, Any] | None = None
         if method.upper() != "DELETE" and actions:
-            payload = actions[action_index]
+            # The API documents only joined_status/picked as request body; the
+            # action objects also carry display fields (name, user_id) to drop.
+            payload = {
+                key: {
+                    k: v
+                    for k, v in (value or {}).items()
+                    if k in ("joined_status", "picked")
+                }
+                for key, value in actions[action_index].items()
+            }
 
         return await self._request(method.upper(), action_path, json_data=payload)
 

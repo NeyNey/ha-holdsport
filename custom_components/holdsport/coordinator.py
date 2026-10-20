@@ -17,6 +17,9 @@ from .holdsport_api import HoldsportApiClient, HoldsportApiError, HoldsportAuthE
 
 _LOGGER = logging.getLogger(__name__)
 
+# Number of upcoming activities per team for which tasks are fetched.
+TASK_LOOKAHEAD = 3
+
 
 class HoldsportDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinate Holdsport API data updates."""
@@ -55,26 +58,31 @@ class HoldsportDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _safe("notes", self.client.async_get_notes(team_id)),
         )
 
-        tasks_map: dict[str, list[dict[str, Any]]] = {}
-        activity_ids: list[str] = []
-        task_coroutines: list[Any] = []
+        # Tasks are only shown for the next activity, so don't hammer the API
+        # with one request per upcoming activity on every refresh.
         now = dt_util.utcnow()
+        upcoming: list[tuple[Any, dict[str, Any]]] = []
         for activity in activities:
-            activity_id = activity.get("id")
-            if activity_id is None:
+            if activity.get("id") is None:
                 continue
-            start_time_str = activity.get("starttime")
-            if start_time_str:
-                start_time = dt_util.parse_datetime(start_time_str)
-                if start_time is not None and dt_util.as_utc(start_time) < now:
-                    continue
-            activity_ids.append(str(activity_id))
-            task_coroutines.append(
-                _safe("activity_tasks", self.client.async_get_activity_tasks(int(activity_id)))
+            start_time = dt_util.parse_datetime(activity.get("starttime") or "")
+            if start_time is None:
+                continue
+            start_time = dt_util.as_utc(start_time)
+            if start_time >= now:
+                upcoming.append((start_time, activity))
+        upcoming.sort(key=lambda item: item[0])
+        next_ids = [str(a["id"]) for _, a in upcoming[:TASK_LOOKAHEAD]]
+
+        tasks_map: dict[str, list[dict[str, Any]]] = {}
+        if next_ids:
+            task_results = await asyncio.gather(
+                *(
+                    _safe("activity_tasks", self.client.async_get_activity_tasks(int(i)))
+                    for i in next_ids
+                )
             )
-        if task_coroutines:
-            task_results = await asyncio.gather(*task_coroutines)
-            tasks_map = dict(zip(activity_ids, task_results, strict=True))
+            tasks_map = dict(zip(next_ids, task_results, strict=True))
 
         return {
             "activities": activities,

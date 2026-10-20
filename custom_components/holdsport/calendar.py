@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -16,18 +16,54 @@ from homeassistant.util import dt as dt_util
 from .const import DOMAIN
 from .coordinator import HoldsportDataUpdateCoordinator
 
+DEFAULT_EVENT_DURATION = timedelta(hours=1)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up Holdsport team calendars."""
+    """Set up Holdsport team calendars (all activities plus one per type)."""
     coordinator: HoldsportDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    teams = coordinator.data.get("teams", [])
+
     async_add_entities(
-        HoldsportTeamCalendar(coordinator, entry, team)
-        for team in coordinator.data.get("teams", [])
+        HoldsportTeamCalendar(coordinator, entry, team) for team in teams
     )
+
+    known_types: set[tuple[str, int]] = set()
+
+    @callback
+    def _add_type_calendars() -> None:
+        """Create a calendar for every activity type not seen before."""
+        new_entities: list[HoldsportTeamCalendar] = []
+        for team in coordinator.data.get("teams", []):
+            team_id = str(team["id"])
+            for activity in coordinator.data.get("activities", {}).get(team_id, []):
+                type_id = activity.get("event_type_id")
+                type_name = activity.get("event_type")
+                if type_id is None or not type_name:
+                    continue
+                key = (team_id, int(type_id))
+                if key in known_types:
+                    continue
+                known_types.add(key)
+                new_entities.append(
+                    HoldsportTeamCalendar(
+                        coordinator,
+                        entry,
+                        team,
+                        event_type_id=int(type_id),
+                        event_type_name=str(type_name).strip(),
+                    )
+                )
+        if new_entities:
+            async_add_entities(new_entities)
+
+    _add_type_calendars()
+    # New activity types can show up later (e.g. the first match of the season).
+    entry.async_on_unload(coordinator.async_add_listener(_add_type_calendars))
 
 
 class HoldsportTeamCalendar(
@@ -36,20 +72,34 @@ class HoldsportTeamCalendar(
     """Expose a team's Holdsport activities as a calendar."""
 
     _attr_has_entity_name = True
-    _attr_translation_key = "team_calendar"
 
     def __init__(
         self,
         coordinator: HoldsportDataUpdateCoordinator,
         entry: ConfigEntry,
         team: dict[str, Any],
+        *,
+        event_type_id: int | None = None,
+        event_type_name: str | None = None,
     ) -> None:
-        """Initialize the team calendar."""
+        """Initialize the team calendar.
+
+        Without an event type the calendar holds every activity of the team;
+        with one it only holds activities of that type (kamp, træning, ...).
+        """
         super().__init__(coordinator)
         self._entry = entry
         self._team = team
         self._team_id = str(team["id"])
-        self._attr_unique_id = f"{entry.entry_id}_{self._team_id}_calendar"
+        self._event_type_id = event_type_id
+        if event_type_id is None:
+            self._attr_translation_key = "team_calendar"
+            self._attr_unique_id = f"{entry.entry_id}_{self._team_id}_calendar"
+        else:
+            self._attr_name = event_type_name or f"Type {event_type_id}"
+            self._attr_unique_id = (
+                f"{entry.entry_id}_{self._team_id}_calendar_type_{event_type_id}"
+            )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -104,6 +154,11 @@ class HoldsportTeamCalendar(
         events: list[CalendarEvent] = []
         activities = self.coordinator.data.get("activities", {}).get(self._team_id, [])
         for activity in activities:
+            if (
+                self._event_type_id is not None
+                and activity.get("event_type_id") != self._event_type_id
+            ):
+                continue
             event = self._activity_to_event(activity)
             if event is not None:
                 events.append(event)
@@ -114,12 +169,16 @@ class HoldsportTeamCalendar(
         start = dt_util.parse_datetime(activity.get("starttime") or "")
         end = dt_util.parse_datetime(activity.get("endtime") or "")
         activity_id = activity.get("id")
-        if start is None or end is None or activity_id is None:
+        if start is None or activity_id is None:
             return None
         start = dt_util.as_local(start) if start.tzinfo else start.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
-        end = dt_util.as_local(end) if end.tzinfo else end.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        if end is None:
+            # Holdsport often sends an empty endtime; assume a default duration.
+            end = start + DEFAULT_EVENT_DURATION
+        else:
+            end = dt_util.as_local(end) if end.tzinfo else end.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
         if start >= end:
-            return None
+            end = start + DEFAULT_EVENT_DURATION
 
         return CalendarEvent(
             summary=str(activity.get("name") or "Holdsport activity"),
@@ -153,7 +212,7 @@ class HoldsportTeamCalendar(
             attendee.get("status_code") == 2
             for attendee in activity.get("activities_users", [])
         )
-        if registered or declined or activity.get("no_rsvp_count"):
+        if activity.get("activities_users"):
             details.append(
                 "Responses: "
                 f"{registered} attending, {declined} declined, "

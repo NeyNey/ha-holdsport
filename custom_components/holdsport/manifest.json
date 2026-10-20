@@ -1,12 +1,16 @@
 {
   "domain": "holdsport",
   "name": "Holdsport",
-  "codeowners": ["@MrMEEE"],
+  "codeowners": [
+    "@MrMEEE"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/MrMEEE/ha-holdsport",
-  "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/MrMEEE/ha-holdsport/issues",
-  "loggers": ["custom_components.holdsport"],
+  "iot_class": "cloud_polling",
+  "loggers": [
+    "custom_components.holdsport"
+  ],
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
