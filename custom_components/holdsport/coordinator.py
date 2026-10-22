@@ -38,6 +38,8 @@ class HoldsportDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(minutes=update_interval_minutes),
         )
         self.client = client
+        # Registry id of the account device; set during integration setup.
+        self.account_device_id: str | None = None
 
     async def _async_team_payload(self, team_id: int) -> dict[str, list[dict[str, Any]]]:
         """Fetch team scoped payload."""
@@ -46,7 +48,16 @@ class HoldsportDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             try:
                 result = await coro
                 if isinstance(result, list):
+                    _LOGGER.debug(
+                        "Fetched %s %s for team %s", len(result), call_name, team_id
+                    )
                     return result
+                _LOGGER.warning(
+                    "Unexpected response type %s for %s of team %s",
+                    type(result).__name__,
+                    call_name,
+                    team_id,
+                )
                 return []
             except HoldsportApiError as err:
                 _LOGGER.warning("Unable to fetch %s for team %s: %s", call_name, team_id, err)

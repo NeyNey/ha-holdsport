@@ -14,7 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, JOINED_STATUS_ATTENDING, JOINED_STATUS_DECLINED
 from .coordinator import HoldsportDataUpdateCoordinator
-from .helpers import find_action_index, next_activity
+from .helpers import find_action_index, next_activity, team_device_info
 from .holdsport_api import HoldsportApiError
 
 # (translation key, joined_status, icon)
@@ -74,12 +74,8 @@ class HoldsportNextActivityButton(
     @property
     def device_info(self) -> DeviceInfo:
         """Attach the button to the team device."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._team_id}")},
-            name=self._team.get("name", f"Team {self._team_id}"),
-            manufacturer="Holdsport",
-            model="Team",
-            via_device=(DOMAIN, self._entry.entry_id),
+        return team_device_info(
+            self.coordinator, self._entry.entry_id, self._team_id, self._team
         )
 
     def _target(self) -> tuple[dict[str, Any], int] | None:

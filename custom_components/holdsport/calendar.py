@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .helpers import team_device_info
 from .coordinator import HoldsportDataUpdateCoordinator
 
 DEFAULT_EVENT_DURATION = timedelta(hours=1)
@@ -104,12 +105,8 @@ class HoldsportTeamCalendar(
     @property
     def device_info(self) -> DeviceInfo:
         """Return team device information."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._team_id}")},
-            name=self._team.get("name", f"Team {self._team_id}"),
-            manufacturer="Holdsport",
-            model="Team",
-            via_device=(DOMAIN, self._entry.entry_id),
+        return team_device_info(
+            self.coordinator, self._entry.entry_id, self._team_id, self._team
         )
 
     @property

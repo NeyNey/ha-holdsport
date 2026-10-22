@@ -26,6 +26,7 @@ from .helpers import (
     note_summary,
     sorted_activities,
     sorted_notes,
+    team_device_info,
 )
 
 TEAM_ROLES = {
@@ -127,12 +128,8 @@ class HoldsportTeamBaseEntity(HoldsportBaseEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return team device info."""
-        return DeviceInfo(
-            identifiers={(DOMAIN, f"{self._entry.entry_id}_{self._team_id}")},
-            name=self._team.get("name", f"Team {self._team_id}"),
-            manufacturer="Holdsport",
-            model="Team",
-            via_device=(DOMAIN, self._entry.entry_id),
+        return team_device_info(
+            self.coordinator, self._entry.entry_id, self._team_id, self._team
         )
 
 

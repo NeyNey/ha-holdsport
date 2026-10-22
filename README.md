@@ -348,9 +348,41 @@ target:
 
 ## Troubleshooting
 
-- **No events in a calendar**: run **Developer Tools → Actions → `calendar.get_events`** on the
-  calendar entity with `duration: {days: 30}` to see what the integration produces. If that
-  list is empty, check the logs under **Settings → System → Logs**.
+**Step 1: look at the raw data.** Open **Developer tools → Template** and paste this (replace
+`myteam`). In recent Home Assistant versions Developer tools is no longer in the sidebar: go to
+**Settings**, scroll to the bottom and open **Developer tools**, or press `Ctrl+K` (`Cmd+K` on Mac)
+and type "developer":
+
+```
+next activity: {{ states('sensor.myteam_next_activity') }}
+  starts: {{ state_attr('sensor.myteam_next_activity', 'starttime') }}
+activities: {{ states('sensor.myteam_activities') }}
+  first: {{ (state_attr('sensor.myteam_activities', 'activities') or [])[:2] }}
+notes: {{ states('sensor.myteam_notes') }} (count {{ state_attr('sensor.myteam_notes', 'count') }})
+now: {{ now() }}
+```
+
+- If a sensor shows `unknown`, the integration got no data. Check the logs (step 2).
+- If the values look right but a dashboard card doesn't, the problem is in the card, not the
+  integration. Paste the card's template into the same Template tool to see the error.
+
+**Step 2: logs.** Failed requests are logged as warnings ("Unable to fetch notes for team …") under
+**Settings → System → Logs**. For more detail, enable debug logging in `configuration.yaml` and restart:
+
+```yaml
+logger:
+  logs:
+    custom_components.holdsport: debug
+```
+
+The debug log shows how many activities, members and notes were fetched for each team on every update.
+
+**Common problems**
+
+- **No events in a calendar**: run **Developer tools → Actions → `calendar.get_events`** on the
+  calendar entity with `duration: {days: 30}` to see what the integration produces.
+- **Notes are empty**: the team may simply have no notes. Holdsport returns an empty list in that
+  case, and the debug log will say "Fetched 0 notes".
 - **HACS says the repository structure is not compliant**: make sure the repository was added as
   type **Integration**.
 - **A calendar for a type is missing**: type calendars are created from the activities currently
@@ -363,6 +395,9 @@ Please include relevant log lines (with personal details removed) when opening a
 - The integration lives in `custom_components/holdsport/`.
 - `hacs.json` and the GitHub Actions workflows validate the repository with HACS and hassfest.
 - Pushing a tag such as `v0.1.1` creates a GitHub release with a zip of the integration.
+- Team devices are linked to the account device with `via_device_id` on Home Assistant 2026.8
+  and newer, and with the older `via_device` on earlier versions (`via_device` is deprecated and
+  breaks in 2027.8).
 - Sign-up buttons rely on the `joined_status` of the actions Holdsport returns for an activity
   (1 = attending, 2 = declined).
 - Keep the keys in `manifest.json` ordered as hassfest requires: `domain`, `name`, then the rest

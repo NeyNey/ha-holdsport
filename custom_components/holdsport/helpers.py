@@ -5,9 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import dt as dt_util
 
-from .const import BASE_URL, MAX_NOTE_BODY_LENGTH
+from .const import BASE_URL, DOMAIN, MAX_NOTE_BODY_LENGTH
 
 
 def next_activity(activities: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -109,3 +110,26 @@ def note_summary(note: dict[str, Any]) -> dict[str, Any]:
         "created_at": note.get("created_at"),
         "attachment_url": f"{BASE_URL}{attachment}" if attachment else None,
     }
+
+
+def team_device_info(
+    coordinator: Any, entry_id: str, team_id: str, team: dict[str, Any]
+) -> DeviceInfo:
+    """Return device info for a team device, linked to the account device.
+
+    Home Assistant 2026.8+ wants the parent's device registry id in
+    ``via_device_id``; older versions only know the ``via_device`` identifier
+    tuple (which newer versions deprecate and eventually remove).
+    """
+    info = DeviceInfo(
+        identifiers={(DOMAIN, f"{entry_id}_{team_id}")},
+        name=team.get("name", f"Team {team_id}"),
+        manufacturer="Holdsport",
+        model="Team",
+    )
+    parent_id = getattr(coordinator, "account_device_id", None)
+    if parent_id and "via_device_id" in getattr(DeviceInfo, "__optional_keys__", ()):
+        info["via_device_id"] = parent_id  # type: ignore[typeddict-unknown-key]
+    else:
+        info["via_device"] = (DOMAIN, entry_id)  # type: ignore[typeddict-unknown-key]
+    return info

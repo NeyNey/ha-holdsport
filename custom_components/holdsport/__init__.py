@@ -112,13 +112,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # regardless of which platform is set up first.
     user = coordinator.data.get("user", {})
     display_name = f"{user.get('firstname', '')} {user.get('lastname', '')}".strip()
-    dr.async_get(hass).async_get_or_create(
+    account_device = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, entry.entry_id)},
         name=display_name or entry.data[CONF_USERNAME],
         manufacturer="Holdsport",
         model="Account",
     )
+    coordinator.account_device_id = account_device.id
 
     if _services_missing(hass):
         _register_services(hass)
