@@ -8,9 +8,9 @@
   "documentation": "https://github.com/MrMEEE/ha-holdsport",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/MrMEEE/ha-holdsport/issues",
-    "loggers": [
+  "loggers": [
     "custom_components.holdsport"
   ],
   "requirements": [],
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

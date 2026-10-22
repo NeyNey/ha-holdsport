@@ -42,6 +42,14 @@
       "team_notes_count": {
         "name": "Notes"
       }
+    },
+    "button": {
+      "sign_up_next_activity": {
+        "name": "Sign up for next activity"
+      },
+      "decline_next_activity": {
+        "name": "Decline next activity"
+      }
     }
   },
   "options": {

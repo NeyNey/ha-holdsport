@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
@@ -12,9 +11,22 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, MAX_TASK_ATTRIBUTES
+from .const import (
+    DOMAIN,
+    MAX_ACTIVITY_ATTRIBUTES,
+    MAX_NOTE_ATTRIBUTES,
+    MAX_TASK_ATTRIBUTES,
+)
+from .coordinator import HoldsportDataUpdateCoordinator
+from .helpers import (
+    activity_summary,
+    my_status,
+    next_activity,
+    note_summary,
+    sorted_activities,
+    sorted_notes,
+)
 
 TEAM_ROLES = {
     1: "player",
@@ -24,7 +36,6 @@ TEAM_ROLES = {
     5: "inactive",
     6: "team_leader",
 }
-from .coordinator import HoldsportDataUpdateCoordinator
 
 
 async def async_setup_entry(
@@ -40,9 +51,9 @@ async def async_setup_entry(
         entities.extend(
             [
                 HoldsportTeamNextActivitySensor(coordinator, entry, team),
-                HoldsportTeamMetricSensor(coordinator, entry, team, "activities"),
+                HoldsportTeamActivitiesSensor(coordinator, entry, team),
                 HoldsportTeamMetricSensor(coordinator, entry, team, "members"),
-                HoldsportTeamMetricSensor(coordinator, entry, team, "notes"),
+                HoldsportTeamNotesSensor(coordinator, entry, team),
             ]
         )
 
@@ -156,6 +167,73 @@ class HoldsportTeamMetricSensor(HoldsportTeamBaseEntity):
         }
 
 
+class HoldsportTeamActivitiesSensor(HoldsportTeamMetricSensor):
+    """Number of upcoming activities, with the activities themselves as attributes."""
+
+    # Lists can be large and change often; keep them out of the recorder database.
+    _unrecorded_attributes = frozenset({"activities"})
+
+    def __init__(
+        self,
+        coordinator: HoldsportDataUpdateCoordinator,
+        entry: ConfigEntry,
+        team: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator, entry, team, "activities")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the upcoming activities, soonest first."""
+        user_id = self.coordinator.data.get("user", {}).get("id")
+        activities = sorted_activities(
+            self.coordinator.data.get("activities", {}).get(self._team_id, [])
+        )
+        return {
+            **super().extra_state_attributes,
+            "count": len(activities),
+            "activities": [
+                activity_summary(a, user_id)
+                for a in activities[:MAX_ACTIVITY_ATTRIBUTES]
+            ],
+        }
+
+
+class HoldsportTeamNotesSensor(HoldsportTeamMetricSensor):
+    """Latest team note title as state, with all recent notes as attributes."""
+
+    _unrecorded_attributes = frozenset({"notes"})
+
+    def __init__(
+        self,
+        coordinator: HoldsportDataUpdateCoordinator,
+        entry: ConfigEntry,
+        team: dict[str, Any],
+    ) -> None:
+        super().__init__(coordinator, entry, team, "notes")
+
+    def _notes(self) -> list[dict[str, Any]]:
+        return sorted_notes(self.coordinator.data.get("notes", {}).get(self._team_id, []))
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the title of the newest note (state is limited to 255 characters)."""
+        notes = self._notes()
+        if not notes:
+            return None
+        title = (notes[0].get("title") or "").strip()
+        return title[:255] or None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Expose the newest notes, newest first."""
+        notes = self._notes()
+        return {
+            **super().extra_state_attributes,
+            "count": len(notes),
+            "notes": [note_summary(n) for n in notes[:MAX_NOTE_ATTRIBUTES]],
+        }
+
+
 class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
     """Sensor exposing next upcoming activity details for a team."""
 
@@ -171,31 +249,11 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
 
     def _next_activity(self) -> dict[str, Any] | None:
         activities = self.coordinator.data.get("activities", {}).get(self._team_id, [])
-        best: tuple[datetime, dict[str, Any]] | None = None
-        now = dt_util.utcnow()
-
-        for activity in activities:
-            start = activity.get("starttime")
-            if not start:
-                continue
-            start_time = dt_util.parse_datetime(start)
-            if start_time is None:
-                continue
-            start_time = dt_util.as_utc(start_time)
-            if start_time < now:
-                continue
-            if best is None or start_time < best[0]:
-                best = (start_time, activity)
-
-        return best[1] if best else None
+        return next_activity(activities)
 
     def _my_status(self, activity: dict[str, Any]) -> str | None:
         """Return the authenticated user's own response, if the API lists it."""
-        user_id = self.coordinator.data.get("user", {}).get("id")
-        for attendee in activity.get("activities_users", []):
-            if attendee.get("user_id") == user_id:
-                return attendee.get("status")
-        return None
+        return my_status(activity, self.coordinator.data.get("user", {}).get("id"))
 
     @property
     def native_value(self) -> str | None:
