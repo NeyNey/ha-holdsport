@@ -29,7 +29,7 @@ answering sign-ups, adding comments, offering rides and picking tasks.
 ### HACS
 
 1. In HACS, open the menu and choose **Custom repositories**.
-2. Add this repository's URL and set the type to **Integration** (not *Dashboard*).
+2. Add `https://github.com/NeyNey/ha-holdsport` and set the type to **Integration** (not *Dashboard*).
 3. Install **Holdsport** and restart Home Assistant.
 
 ### Manual
@@ -394,7 +394,10 @@ Please include relevant log lines (with personal details removed) when opening a
 
 - The integration lives in `custom_components/holdsport/`.
 - `hacs.json` and the GitHub Actions workflows validate the repository with HACS and hassfest.
-- Pushing a tag such as `v0.1.1` creates a GitHub release with a zip of the integration.
+- **Releasing:** change `version` in `manifest.json`, add an entry to `CHANGELOG.md`, commit, and
+  run `./release.sh` (or push a tag `vX.Y.Z` yourself). The release workflow checks that the tag
+  matches the manifest version and then creates the GitHub release with a zip of the integration.
+- Work on a branch and open a pull request; the Validate workflow must be green before merging.
 - Team devices are linked to the account device with `via_device_id` on Home Assistant 2026.8
   and newer, and with the older `via_device` on earlier versions (`via_device` is deprecated and
   breaks in 2027.8).
@@ -405,4 +408,5 @@ Please include relevant log lines (with personal details removed) when opening a
 
 ## Credits
 
-Original integration by [MrMEEE](https://github.com/MrMEEE/ha-holdsport).
+Originally created by [MrMEEE](https://github.com/MrMEEE/ha-holdsport). This version is maintained
+by [NeyNey](https://github.com/NeyNey/ha-holdsport). Licensed under the GNU GPL v3, see `LICENSE`.

@@ -178,11 +178,11 @@ class HoldsportTeamCalendar(
             end = start + DEFAULT_EVENT_DURATION
 
         return CalendarEvent(
-            summary=str(activity.get("name") or "Holdsport activity"),
+            summary=str(activity.get("name") or "").strip() or "Holdsport activity",
             start=start,
             end=end,
             description=self._description(activity),
-            location=activity.get("place") or None,
+            location=(activity.get("place") or "").strip() or None,
             uid=f"holdsport-{self._team_id}-{activity_id}",
         )
 

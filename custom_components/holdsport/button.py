@@ -103,7 +103,7 @@ class HoldsportNextActivityButton(
         activity, _ = target
         return {
             "activity_id": activity.get("id"),
-            "activity_name": activity.get("name"),
+            "activity_name": (activity.get("name") or "").strip(),
             "starttime": activity.get("starttime"),
         }
 

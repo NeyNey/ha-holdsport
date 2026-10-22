@@ -9,6 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check that the tag matches the manifest version
+        run: |
+          manifest_version=$(python3 -c "import json; print(json.load(open('custom_components/holdsport/manifest.json'))['version'])")
+          if [ "v${manifest_version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match manifest version v${manifest_version}"
+            exit 1
+          fi
       - run: cd custom_components/holdsport && zip -r ../../holdsport.zip .
       - uses: softprops/action-gh-release@v2
         with:

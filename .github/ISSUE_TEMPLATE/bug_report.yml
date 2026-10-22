@@ -1,0 +1,31 @@
+name: Bug report
+description: Something does not work as expected
+body:
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.3 (Container)"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Holdsport integration version
+      placeholder: "0.2.2"
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log lines
+      description: >
+        Settings > System > Logs, search for "holdsport". Enable debug logging
+        (see the README, Troubleshooting) if needed. Remove names and other personal details.
+      render: text

@@ -2,15 +2,15 @@
   "domain": "holdsport",
   "name": "Holdsport",
   "codeowners": [
-    "@MrMEEE"
+    "@NeyNey"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/MrMEEE/ha-holdsport",
+  "documentation": "https://github.com/NeyNey/ha-holdsport",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/MrMEEE/ha-holdsport/issues",
+  "issue_tracker": "https://github.com/NeyNey/ha-holdsport/issues",
   "loggers": [
     "custom_components.holdsport"
   ],
   "requirements": [],
-  "version": "0.2.1"
+  "version": "0.2.2"
 }

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Create and push a release tag from the version in version.txt."""
+"""Create and push a release tag from the version in manifest.json."""
 
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-VERSION_FILE = ROOT / "version.txt"
+VERSION_FILE = ROOT / "custom_components" / "holdsport" / "manifest.json"
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 
 
@@ -20,9 +21,9 @@ def run_git(*args: str) -> subprocess.CompletedProcess[str]:
 
 def read_version() -> str:
     try:
-        version = VERSION_FILE.read_text(encoding="utf-8").strip()
-    except FileNotFoundError as exc:
-        raise SystemExit(f"Missing {VERSION_FILE.name}. Create it with a semver like 0.1.0.") from exc
+        version = str(json.loads(VERSION_FILE.read_text(encoding="utf-8"))["version"]).strip()
+    except (FileNotFoundError, KeyError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"Cannot read the version from {VERSION_FILE.name}.") from exc
 
     if not SEMVER_RE.match(version):
         raise SystemExit(f"Invalid semver in {VERSION_FILE.name}: {version!r}")

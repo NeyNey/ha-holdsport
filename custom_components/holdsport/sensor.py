@@ -258,7 +258,8 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
         activity = self._next_activity()
         if not activity:
             return None
-        return activity.get("name")
+        name = (activity.get("name") or "").strip()
+        return name or None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -287,7 +288,7 @@ class HoldsportTeamNextActivitySensor(HoldsportTeamBaseEntity):
             "starttime": activity.get("starttime"),
             "endtime": activity.get("endtime"),
             "status": activity.get("status"),
-            "place": activity.get("place"),
+            "place": (activity.get("place") or "").strip() or None,
             "comment": activity.get("comment"),
             "no_rsvp_count": activity.get("no_rsvp_count"),
             "my_status": self._my_status(activity),
